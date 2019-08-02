@@ -21,20 +21,50 @@ $.extend(renderAmpCurvesBinding, {
     return true;
   },
 
-  // Given the DOM element for the input, set the value
-  setValue: function(el, hideCurves) {
-    if (Array.isArray(hideCurves) === false)
-      hideCurves = [hideCurves];
+  markCurves: function(el, toMarkCurves, markType) {
+    if (Array.isArray(toMarkCurves) === false)
+      toMarkCurves = [toMarkCurves];
 
     var graphDiv = el.getElementsByClassName('plotly')[0];
-    graphDiv.data.forEach(function(curve) {
-      if (hideCurves.some(function(hideCurve) {
-        return curve.customdata.includes(hideCurve);
+    var indecesToMark = [];
+    graphDiv.data.forEach(function(curve, i) {
+      if (toMarkCurves.some(function(toMarkCurve) {
+        return curve.customdata[0] === toMarkCurve;
               }))
               {
-          curve.visible = false;
-        } else {
-          curve.visible = true;}
+                indecesToMark.push(i);
+                if (markType === "highlight") {
+                  curve.line.width = 4;
+                  curve.opacity = 1;
+                  curve.marker.size = 10;
+                } else {
+                  curve.visible = false;
+                }
+              } else {
+                if (markType === "highlight") {
+                  curve.line.width = 2;
+                  curve.opacity = 0.3;
+                  curve.marker.size = 7;
+                } else {
+                  curve.visible = true;
+                }
+        }
+    });
+    if (markType === "highlight") {
+      var newIndeces = indecesToMark.map(function(_, i)
+        { return graphDiv.data.length - i - 1; });
+      Plotly.moveTraces(graphDiv, indecesToMark, newIndeces);
+    } else {
+      Plotly.redraw(graphDiv);
+    }
+  },
+
+  removeHighlightCurves: function(el) {
+    var graphDiv = el.getElementsByClassName('plotly')[0];
+    graphDiv.data.forEach(function(curve) {
+          curve.line.width = 2;
+          curve.opacity = 1;
+          curve.marker.size = 7;
     });
     Plotly.redraw(graphDiv);
   },
@@ -58,7 +88,15 @@ $.extend(renderAmpCurvesBinding, {
   // Messages sent by updateCurves() are received by this function.
   receiveMessage: function(el, data) {
     if (data.hasOwnProperty('hideCurves')){
-      this.setValue(el, data.hideCurves)
+      this.markCurves(el, data.hideCurves, "hide");
+    };
+
+    if (data.hasOwnProperty('highlightCurves')){
+      if (data.highlightCurves.length === 0) {
+        this.removeHighlightCurves(el);
+      } else {
+        this.markCurves(el, data.highlightCurves, "highlight");
+      }
     };
 
     if (data.hasOwnProperty('label'))
